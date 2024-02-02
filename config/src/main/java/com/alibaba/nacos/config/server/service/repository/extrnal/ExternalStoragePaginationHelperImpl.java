@@ -91,7 +91,10 @@ class ExternalStoragePaginationHelperImpl<E> implements PaginationHelper {
         } else if (lastMaxId != null) {
             selectSql = sqlFetchRows + " and id > " + lastMaxId + " order by id asc" + " limit " + 0 + "," + pageSize;
         } else {
-            selectSql = sqlFetchRows + " limit " + startRow + "," + pageSize;
+//            selectSql = sqlFetchRows + " limit " + startRow + "," + pageSize;
+
+            // 修改支持postgresql
+            selectSql = sqlFetchRows + " limit " + pageSize + " offset " + startRow;
         }
         
         List<E> result = jdbcTemplate.query(selectSql, args, rowMapper);

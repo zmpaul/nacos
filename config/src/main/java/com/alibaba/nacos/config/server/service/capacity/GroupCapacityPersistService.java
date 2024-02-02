@@ -121,7 +121,11 @@ public class GroupCapacityPersistService {
             PreparedStatementCreator preparedStatementCreator = new PreparedStatementCreator() {
                 @Override
                 public PreparedStatement createPreparedStatement(Connection connection) throws SQLException {
-                    PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+//                    PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+
+                    // 修改支持postgresql
+                    PreparedStatement ps = connection.prepareStatement(sql, new String[]{"id"});
+
                     String group = capacity.getGroup();
                     ps.setString(1, group);
                     ps.setInt(2, capacity.getQuota());

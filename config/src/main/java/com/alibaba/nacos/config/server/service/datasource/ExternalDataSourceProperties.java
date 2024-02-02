@@ -13,6 +13,7 @@
 
 package com.alibaba.nacos.config.server.service.datasource;
 
+import com.alibaba.nacos.sys.env.EnvUtil;
 import com.google.common.base.Preconditions;
 import com.zaxxer.hikari.HikariDataSource;
 import org.apache.commons.collections.CollectionUtils;
@@ -78,7 +79,12 @@ public class ExternalDataSourceProperties {
             int currentSize = index + 1;
             Preconditions.checkArgument(url.size() >= currentSize, "db.url.%s is null", index);
             DataSourcePoolProperties poolProperties = DataSourcePoolProperties.build(environment);
-            poolProperties.setDriverClassName(JDBC_DRIVER_NAME);
+            // 默认mysql驱动
+            String driverClassName = JDBC_DRIVER_NAME;
+            if("postgresql".equals(EnvUtil.getProperty("spring.datasource.platform"))){
+                driverClassName = "org.postgresql.Driver";
+            }
+            poolProperties.setDriverClassName(driverClassName);
             poolProperties.setJdbcUrl(url.get(index).trim());
             poolProperties.setUsername(getOrDefault(user, index, user.get(0)).trim());
             poolProperties.setPassword(getOrDefault(password, index, password.get(0)).trim());

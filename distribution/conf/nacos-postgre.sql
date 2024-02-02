@@ -12,11 +12,10 @@
  Target Server Version : 120002
  File Encoding         : 65001
 
- @author wangtan
+ @author mkHan
  @date 2021-02-01 16:41:17
  @since 1.0
 */
-CREATE SCHEMA nacos AUTHORIZATION nacos;
 
 CREATE TABLE config_info (
   id bigserial NOT NULL,
