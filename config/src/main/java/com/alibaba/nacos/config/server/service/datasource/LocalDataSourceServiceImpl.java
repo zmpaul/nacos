@@ -50,27 +50,27 @@ import java.util.concurrent.Callable;
  * @author Nacos
  */
 public class LocalDataSourceServiceImpl implements DataSourceService {
-    
+
     private final String jdbcDriverName = "org.apache.derby.jdbc.EmbeddedDriver";
-    
+
     private final String userName = "nacos";
-    
+
     private final String password = "nacos";
-    
+
     private final String derbyBaseDir = "data" + File.separator + "derby-data";
-    
+
     private final String derbyShutdownErrMsg = "Derby system shutdown.";
-    
+
     private volatile JdbcTemplate jt;
-    
+
     private volatile TransactionTemplate tjt;
-    
+
     private boolean initialize = false;
-    
+
     private boolean jdbcTemplateInit = false;
-    
+
     private String healthStatus = "UP";
-    
+
     @PostConstruct
     @Override
     public synchronized void init() throws Exception {
@@ -85,7 +85,7 @@ public class LocalDataSourceServiceImpl implements DataSourceService {
             }
         }
     }
-    
+
     @Override
     public synchronized void reload() {
         DataSource ds = jt.getDataSource();
@@ -101,11 +101,11 @@ public class LocalDataSourceServiceImpl implements DataSourceService {
             throw new NacosRuntimeException(NacosException.SERVER_ERROR, "load schema.sql error.", e);
         }
     }
-    
+
     public DataSource getDatasource() {
         return jt.getDataSource();
     }
-    
+
     /**
      * Clean and reopen Derby.
      *
@@ -117,7 +117,7 @@ public class LocalDataSourceServiceImpl implements DataSourceService {
                 "jdbc:derby:" + Paths.get(EnvUtil.getNacosHome(), derbyBaseDir).toString() + ";create=true";
         initialize(jdbcUrl);
     }
-    
+
     /**
      * Restore derby.
      *
@@ -130,7 +130,7 @@ public class LocalDataSourceServiceImpl implements DataSourceService {
         callable.call();
         initialize(jdbcUrl);
     }
-    
+
     private void doDerbyClean() throws Exception {
         LogUtil.DEFAULT_LOG.warn("use local db service for reopenDerby");
         try {
@@ -143,7 +143,7 @@ public class LocalDataSourceServiceImpl implements DataSourceService {
         }
         DiskUtils.deleteDirectory(Paths.get(EnvUtil.getNacosHome(), derbyBaseDir).toString());
     }
-    
+
     private synchronized void initialize(String jdbcUrl) {
         DataSourcePoolProperties poolProperties = DataSourcePoolProperties.build(EnvUtil.getEnvironment());
         poolProperties.setDriverClassName(jdbcDriverName);
@@ -167,36 +167,36 @@ public class LocalDataSourceServiceImpl implements DataSourceService {
         }
         reload();
     }
-    
+
     @Override
     public boolean checkMasterWritable() {
         return true;
     }
-    
+
     @Override
     public JdbcTemplate getJdbcTemplate() {
         return jt;
     }
-    
+
     @Override
     public TransactionTemplate getTransactionTemplate() {
         return tjt;
     }
-    
+
     @Override
     public String getCurrentDbUrl() {
         return "jdbc:derby:" + EnvUtil.getNacosHome() + File.separator + derbyBaseDir + ";create=true";
     }
-    
+
     @Override
     public String getHealth() {
         return healthStatus;
     }
-    
+
     public void setHealthStatus(String healthStatus) {
         this.healthStatus = healthStatus;
     }
-    
+
     /**
      * Load sql.
      *
@@ -217,14 +217,14 @@ public class LocalDataSourceServiceImpl implements DataSourceService {
             } else {
                 sqlFileIn = new FileInputStream(file);
             }
-            
+
             StringBuilder sqlSb = new StringBuilder();
             byte[] buff = new byte[1024];
             int byteRead = 0;
             while ((byteRead = sqlFileIn.read(buff)) != -1) {
                 sqlSb.append(new String(buff, 0, byteRead, Constants.ENCODE));
             }
-            
+
             String[] sqlArr = sqlSb.toString().split(";");
             for (int i = 0; i < sqlArr.length; i++) {
                 String sql = sqlArr[i].replaceAll("--.*", "").trim();
@@ -239,7 +239,7 @@ public class LocalDataSourceServiceImpl implements DataSourceService {
             IoUtils.closeQuietly(sqlFileIn);
         }
     }
-    
+
     /**
      * Execute sql.
      *
@@ -253,11 +253,12 @@ public class LocalDataSourceServiceImpl implements DataSourceService {
             for (String sql : sqlList) {
                 try {
                     stmt.execute(sql);
+                    //org.apache.derby.impl.jdbc.EmbedConnection
                 } catch (Exception e) {
                     LogUtil.DEFAULT_LOG.warn(e.getMessage());
                 }
             }
         }
     }
-    
+
 }

@@ -20,9 +20,12 @@ import com.alibaba.nacos.config.server.model.capacity.Capacity;
 import com.alibaba.nacos.config.server.model.capacity.GroupCapacity;
 import com.alibaba.nacos.config.server.service.datasource.DataSourceService;
 import com.alibaba.nacos.config.server.service.datasource.DynamicDataSource;
+import com.alibaba.nacos.config.server.utils.DerbyUtils;
+import com.alibaba.nacos.config.server.utils.PostgreSQLUtils;
 import com.alibaba.nacos.config.server.utils.PropertyUtil;
 import com.alibaba.nacos.config.server.utils.TimeUtils;
 import com.google.common.collect.Lists;
+import org.apache.commons.lang3.RandomUtils;
 import org.springframework.jdbc.CannotGetJdbcConnectionException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.PreparedStatementCreator;
@@ -38,6 +41,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.List;
+import java.util.Random;
 
 import static com.alibaba.nacos.config.server.utils.LogUtil.FATAL_LOG;
 
@@ -49,23 +53,23 @@ import static com.alibaba.nacos.config.server.utils.LogUtil.FATAL_LOG;
  */
 @Service
 public class GroupCapacityPersistService {
-    
+
     static final String CLUSTER = "";
-    
+
     private static final GroupCapacityRowMapper GROUP_CAPACITY_ROW_MAPPER = new GroupCapacityRowMapper();
-    
+
     private JdbcTemplate jdbcTemplate;
-    
+
     private DataSourceService dataSourceService;
-    
+
     @PostConstruct
     public void init() {
         this.dataSourceService = DynamicDataSource.getInstance().getDataSource();
         this.jdbcTemplate = dataSourceService.getJdbcTemplate();
     }
-    
+
     private static final class GroupCapacityRowMapper implements RowMapper<GroupCapacity> {
-        
+
         @Override
         public GroupCapacity mapRow(ResultSet rs, int rowNum) throws SQLException {
             GroupCapacity groupCapacity = new GroupCapacity();
@@ -79,7 +83,7 @@ public class GroupCapacityPersistService {
             return groupCapacity;
         }
     }
-    
+
     public GroupCapacity getGroupCapacity(String groupId) {
         String sql =
                 "SELECT id, quota, `usage`, `max_size`, max_aggr_count, max_aggr_size, group_id FROM group_capacity "
@@ -90,11 +94,11 @@ public class GroupCapacityPersistService {
         }
         return list.get(0);
     }
-    
+
     public Capacity getClusterCapacity() {
         return getGroupCapacity(CLUSTER);
     }
-    
+
     /**
      * Insert GroupCapacity into db.
      *
@@ -114,20 +118,22 @@ public class GroupCapacityPersistService {
         }
         return insertGroupCapacity(sql, capacity);
     }
-    
+
     private boolean insertGroupCapacity(final String sql, final GroupCapacity capacity) {
         try {
             GeneratedKeyHolder generatedKeyHolder = new GeneratedKeyHolder();
             PreparedStatementCreator preparedStatementCreator = new PreparedStatementCreator() {
                 @Override
                 public PreparedStatement createPreparedStatement(Connection connection) throws SQLException {
-//                    PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
-
-                    // 修改支持postgresql
-                    PreparedStatement ps = connection.prepareStatement(sql, new String[]{"id"});
-
+                    PreparedStatement ps = null;
+                    if (PostgreSQLUtils.isPostgreSQL()){
+                        // postgres默认返回整条记录、或者 sql 末尾携带  returning id
+                        ps = connection.prepareStatement(DerbyUtils.insertStatementCorrection(sql), new String[]{"id"});
+                    }else{
+                        ps = connection.prepareStatement(DerbyUtils.insertStatementCorrection(sql), Statement.RETURN_GENERATED_KEYS);
+                    }
                     String group = capacity.getGroup();
-                    ps.setString(1, group);
+                    ps.setString(1, group+ new Random(100));
                     ps.setInt(2, capacity.getQuota());
                     ps.setInt(3, capacity.getMaxSize());
                     ps.setInt(4, capacity.getMaxAggrCount());
@@ -145,9 +151,12 @@ public class GroupCapacityPersistService {
         } catch (CannotGetJdbcConnectionException e) {
             FATAL_LOG.error("[db-error]", e);
             throw e;
+        } catch (Exception ex){
+            ex.printStackTrace();
         }
+        return false;
     }
-    
+
     public int getClusterUsage() {
         Capacity clusterCapacity = getClusterCapacity();
         if (clusterCapacity != null) {
@@ -160,7 +169,7 @@ public class GroupCapacityPersistService {
         }
         return result.intValue();
     }
-    
+
     /**
      * Increment UsageWithDefaultQuotaLimit.
      *
@@ -180,7 +189,7 @@ public class GroupCapacityPersistService {
             throw e;
         }
     }
-    
+
     /**
      * Increment UsageWithQuotaLimit.
      *
@@ -196,10 +205,10 @@ public class GroupCapacityPersistService {
         } catch (CannotGetJdbcConnectionException e) {
             FATAL_LOG.error("[db-error]", e);
             throw e;
-            
+
         }
     }
-    
+
     /**
      * Increment Usage.
      *
@@ -216,7 +225,7 @@ public class GroupCapacityPersistService {
             throw e;
         }
     }
-    
+
     /**
      * Decrement Usage.
      * @param groupCapacity groupCapacity object instance.
@@ -231,7 +240,7 @@ public class GroupCapacityPersistService {
             throw e;
         }
     }
-    
+
     /**
      * Update GroupCapacity.
      *
@@ -264,7 +273,7 @@ public class GroupCapacityPersistService {
         }
         sql.append(" gmt_modified = ?");
         argList.add(TimeUtils.getCurrentTime());
-        
+
         sql.append(" where group_id = ?");
         argList.add(group);
         try {
@@ -274,15 +283,15 @@ public class GroupCapacityPersistService {
             throw e;
         }
     }
-    
+
     public boolean updateQuota(String group, Integer quota) {
         return updateGroupCapacity(group, quota, null, null, null);
     }
-    
+
     public boolean updateMaxSize(String group, Integer maxSize) {
         return updateGroupCapacity(group, null, maxSize, null, null);
     }
-    
+
     /**
      * Correct Usage.
      *
@@ -313,7 +322,7 @@ public class GroupCapacityPersistService {
             }
         }
     }
-    
+
     /**
      * Get group capacity list, noly has id and groupId value.
      *
@@ -323,7 +332,7 @@ public class GroupCapacityPersistService {
      */
     public List<GroupCapacity> getCapacityList4CorrectUsage(long lastId, int pageSize) {
         String sql = "SELECT id, group_id FROM group_capacity WHERE id>? LIMIT ?";
-        
+
         if (PropertyUtil.isEmbeddedStorage()) {
             sql = "SELECT id, group_id FROM group_capacity WHERE id>? OFFSET 0 ROWS FETCH NEXT ? ROWS ONLY";
         }
@@ -342,7 +351,7 @@ public class GroupCapacityPersistService {
             throw e;
         }
     }
-    
+
     /**
      * Delete GroupCapacity.
      *
@@ -365,6 +374,6 @@ public class GroupCapacityPersistService {
             FATAL_LOG.error("[db-error]", e);
             throw e;
         }
-        
+
     }
 }

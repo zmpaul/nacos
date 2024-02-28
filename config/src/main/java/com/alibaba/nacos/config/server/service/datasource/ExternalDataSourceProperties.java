@@ -13,6 +13,7 @@
 
 package com.alibaba.nacos.config.server.service.datasource;
 
+import com.alibaba.nacos.config.server.utils.PostgreSQLUtils;
 import com.alibaba.nacos.sys.env.EnvUtil;
 import com.google.common.base.Preconditions;
 import com.zaxxer.hikari.HikariDataSource;
@@ -33,35 +34,37 @@ import static com.alibaba.nacos.common.utils.CollectionUtils.getOrDefault;
  * @author Nacos
  */
 public class ExternalDataSourceProperties {
-    
+
     private static final String JDBC_DRIVER_NAME = "com.mysql.cj.jdbc.Driver";
-    
+
+    private static final String JDBC_DRIVER_NAME_POSTGRESQL = "org.postgresql.Driver";
+
     private static final String TEST_QUERY = "SELECT 1";
-    
+
     private Integer num;
-    
+
     private List<String> url = new ArrayList<>();
-    
+
     private List<String> user = new ArrayList<>();
-    
+
     private List<String> password = new ArrayList<>();
-    
+
     public void setNum(Integer num) {
         this.num = num;
     }
-    
+
     public void setUrl(List<String> url) {
         this.url = url;
     }
-    
+
     public void setUser(List<String> user) {
         this.user = user;
     }
-    
+
     public void setPassword(List<String> password) {
         this.password = password;
     }
-    
+
     /**
      * Build serveral HikariDataSource.
      *
@@ -81,8 +84,8 @@ public class ExternalDataSourceProperties {
             DataSourcePoolProperties poolProperties = DataSourcePoolProperties.build(environment);
             // 默认mysql驱动
             String driverClassName = JDBC_DRIVER_NAME;
-            if("postgresql".equals(EnvUtil.getProperty("spring.datasource.platform"))){
-                driverClassName = "org.postgresql.Driver";
+            if(PostgreSQLUtils.isPostgreSQL()){
+                driverClassName = JDBC_DRIVER_NAME_POSTGRESQL;
             }
             poolProperties.setDriverClassName(driverClassName);
             poolProperties.setJdbcUrl(url.get(index).trim());
@@ -96,9 +99,9 @@ public class ExternalDataSourceProperties {
         Preconditions.checkArgument(CollectionUtils.isNotEmpty(dataSources), "no datasource available");
         return dataSources;
     }
-    
+
     interface Callback<D> {
-        
+
         /**
          * Perform custom logic.
          *
